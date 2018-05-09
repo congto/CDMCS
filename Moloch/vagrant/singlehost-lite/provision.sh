@@ -13,7 +13,7 @@ check_service(){
 # params
 DEBUG=true
 PROXY=http://192.168.10.1:3128
-EXPOSE=192.168.10.11
+EXPOSE=192.168.10.15
 [ -z $1 ] || EXPOSE=$1
 PKGDIR=/vagrant/pkgs
 WGET_PARAMS="-4 -q"
@@ -26,11 +26,9 @@ grep PATH /root/.bashrc || echo 'PATH=$PATH:/data/moloch/bin' >> /root/.bashrc
 ELA="elasticsearch-6.2.3.deb"
 KIBANA="kibana-6.2.3-amd64.deb"
 INFLUX="influxdb_1.5.1_amd64.deb"
-TELEGRAF="telegraf_1.5.3-1_amd64.deb"
 GRAFANA="grafana_5.0.4_amd64.deb"
 
-MOLOCH="moloch_1.0.0-1_amd64.deb"
-#MOLOCH="v1.0.0-rc2"
+MOLOCH="moloch_1.1.0-1_amd64.deb"
 USER="vagrant"
 
 mkdir -p $PKGDIR
@@ -54,33 +52,12 @@ echo $start >  /vagrant/provision.log
 echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4
 export DEBIAN_FRONTEND=noninteractive
 
-#which docker && docker run -dit --restart unless-stopped -p 127.0.0.1:6379:6379 --name redis0 redis
 which docker && docker run -dit --restart unless-stopped -p 6379:6379 --name redis0 redis
 
 echo "Installing prerequisite packages..."
 apt-get update && apt-get -y install jq wget curl python-minimal python-pip python3-pip python-yaml libpcre3-dev libyaml-dev uuid-dev libmagic-dev pkg-config g++ flex bison zlib1g-dev libffi-dev gettext libgeoip-dev make libjson-perl libbz2-dev libwww-perl libpng-dev xz-utils libffi-dev libsnappy-dev >> /vagrant/provision.log 2>&1
 
-#FILE=/etc/profile
-#grep "proxy" $FILE || cat >> $FILE <<EOF
-#http_proxy=$PROXY
-#https_proxy=$PROXY
-#export http_proxy
-#export https_proxy
-#EOF
-#source /etc/profile
-
-# java
-install_oracle_java() {
-  echo "Installing oracle Java"
-  echo 'oracle-java8-installer shared/accepted-oracle-license-v1-1 boolean true' | debconf-set-selections \
-  && add-apt-repository ppa:webupd8team/java \
-  && apt-get update > /dev/null \
-  && apt-get -y install oracle-java8-installer > /dev/null
-}
 echo "Provisioning JAVA"
-# https://askubuntu.com/questions/966107/cant-install-oracle-java-8-in-ubuntu-16-04
-# java -version || install_oracle_java
-#apt-get update
 java -version || apt-get install -y openjdk-8-jre-headless
 
 # elastic
@@ -91,12 +68,6 @@ dpkg -s elasticsearch || dpkg -i $ELA > /dev/null 2>&1
 
 check_service elasticsearch
 
-# kibana
-echo "Provisioning KIBANA"
-cd $PKGDIR
-[[ -f $KIBANA ]] || wget $WGET_PARAMS https://artifacts.elastic.co/downloads/kibana/$KIBANA -O $KIBANA
-dpkg -s kibana || dpkg -i $KIBANA > /dev/null 2>&1
-
 FILE=/etc/kibana/kibana.yml
 grep "provisioned" $FILE || cat >> $FILE <<EOF
 # provisioned
@@ -106,8 +77,6 @@ EOF
 check_service kibana
 
 echo "Provision moloch"
-#cp /vagrant/buildMoloch.sh /home/$USER/buildMoloch.sh && chown $USER /home/$USER/buildMoloch.sh
-#[[ -f /home/$USER/moloch-$MOLOCH/bin/moloch-capture ]] || time su -c "bash /home/$USER/buildMoloch.sh $MOLOCH" $USER
 cd $PKGDIR
 [[ -f $MOLOCH ]] || wget $WGET_PARAMS https://files.molo.ch/builds/ubuntu-16.04/$MOLOCH
 dpkg -s moloch || dpkg -i $MOLOCH
@@ -121,26 +90,6 @@ sed -i "s/MOLOCH_INTERFACE/$ifaces/g"             config.ini
 sed -i "s/MOLOCH_INSTALL_DIR/\/data\/moloch/g"    config.ini
 sed -i "s/MOLOCH_INSTALL_DIR/\/data\/moloch/g"    config.ini
 sed -i "s/MOLOCH_PASSWORD/test123/g"              config.ini
-
-echo "Configuring wise"
-cp wise.ini.sample wiseService.ini
-sed -i -e 's,#wiseHost=127.0.0.1,wiseHost=127.0.0.1\nplugins=wise.so\nviewerPlugins=wise.js\nwiseTcpTupleLookups=true\nwiseUdpTupleLookups=true\n,g' config.ini
-grep CDMCS wiseService.ini || cat >> wiseService.ini <<EOF
-# CDMCS
-[reversedns]
-ips=10.0.0.0/8
-field=asset
-
-[cache]
-type=redis
-url=redis://127.0.0.1:6379/1
-
-[file:ip]
-file=/vagrant/tagger.txt
-tags=ipwise
-type=ip
-format=tagger
-EOF
 
 echo "Configuring databases"
 cd /data/moloch/db
@@ -157,11 +106,6 @@ for iface in ${ifaces//;/ }; do
   for i in rx tx tso gso gro tx nocache copy sg rxvlan; do ethtool -K $iface $i off > /dev/null 2>&1; done
 done
 
-echo "Starting up wise"
-cd /data/moloch/wiseService
-PIDFILE=/var/run/wise.pid
-[[ -f $PIDFILE ]] || nohup node wiseService.js > >(logger -p daemon.info -t wise) 2> >(logger -p daemon.err -t wise) & sleep 1 ; echo $! > $PIDFILE
-
 echo "Starting up capture"
 PIDFILE=/var/run/capture.pid
 [[ -f $PIDFILE ]] || nohup moloch-capture -c /data/moloch/etc/config.ini > >(logger -p daemon.info -t capture) 2> >(logger -p daemon.err -t capture) & sleep 1 ; echo $! > $PIDFILE
@@ -173,31 +117,6 @@ PIDFILE=/var/run/viewer.pid
 node addUser.js vagrant vagrant vagrant --admin
 [[ -f $PIDFILE ]] || nohup node viewer.js -c ../etc/config.ini > >(logger -p daemon.info -t viewer) 2> >(logger -p daemon.err -t viewer) & sleep 1 ; echo $! > $PIDFILE
 sleep 2 && egrep "viewer:.+ERROR" /var/log/syslog
-
-# parliament
-
-PARLIAMENTPASSWORD=admin
-if curl ${EXPOSE}:8005/eshealth.json > /dev/null 2>&1 ; then
-   if curl ${EXPOSE}:8008 > /dev/null 2>&1; then
-     echo "parliament: already in use ${EXPOSE}:8008"
-   else
-      echo "parliament: preparing ..."  
-      cd /data/moloch/parliament
-      [ -f parliament.json ] && mv parliament.json parliament.json.$(date +%s)
-      /data/moloch/bin/node parliament.js >> /data/moloch/logs/parliament.log 2>&1 & 
-      echo $! > /var/run/parliament.pid  
-      sleep 1
-      token=$(curl -s -XPUT  ${EXPOSE}:8008/parliament/api/auth/update -d newPassword=${PARLIAMENTPASSWORD} | jq .token | sed 's/"//g')
-      H="Content-Type: application/json;charset=UTF-8"
-      GROUP='group1'
-      id=$(curl -s -XPOST -H "${H}" ${EXPOSE}:8008/parliament/api/groups --data "{\"token\":\"${token}\", \"title\":\"${GROUP}\"}"| jq .group.id)
-      CLUSTER='cluster1'
-      URL="http://${EXPOSE}:8005"
-      curl -s -XPOST -H "${H}" ${EXPOSE}:8008/parliament/api/groups/${id}/clusters --data "{\"token\":\"${token}\", \"title\":\"${CLUSTER}\",\"url\":\"${URL}\"}"
-   fi
-else  
-  echo "parliament: can not get eshealth from ${EXPOSE}:8005"
-fi
 
 # suricata
 install_suricata_from_ppa(){
@@ -271,22 +190,6 @@ outputs:
               mode: extra-data
               deployment: reverse
               header: X-Forwarded-For
-#        - http:
-#            extended: yes
-#        - dns:
-#            query: yes
-#            answer: yes
-#        - tls:
-#            extended: yes
-#        - files:
-#            force-magic: no
-#        - smtp:
-#        - ssh
-#        - stats:
-#            totals: yes
-#            threads: no
-#            deltas: no
-#        - flow
 EOF
 grep DC_SERVERS /etc/suricata/suricata.yaml || sed -i '/ENIP_SERVER/a\ \ \ \ DC_SERVERS: "[192.168.10.250/32]"' /etc/suricata/suricata.yaml
 
@@ -318,14 +221,6 @@ suricata-update >> /vagrant/provision.log 2>&1
 echo "Reloading Suricata rules"
 suricatasc -c "reload-rules"
 
-echo "Starting alert tagger"
-cd /vagrant
-pip3 install redis 
-pip3 install kafka-python
-pip3 install python-snappy 
-PIDFILE=/var/run/alertTagger.pid
-[[ -f $PIDFILE ]] || nohup python3 tagger.py -m redisListPop -D -r 100 -w 2 -t suricata -tz 0 -d 30 -mh $EXPOSE -mp 8005 -mu $USER -mpw $USER > >(logger -p daemon.info -t tagger) 2> >(logger -p daemon.err -t tagger) & sleep 1 ; echo $! > $PIDFILE
-
 echo "Provisioning InfluxDB"
 cd $PKGDIR
 [[ -f $INFLUX ]] || wget $WGET_PARAMS https://dl.influxdata.com/influxdb/releases/$INFLUX -O $INFLUX
@@ -340,61 +235,6 @@ apt-get -y install libfontconfig > /dev/null 2>&1
 dpkg -s grafana || dpkg -i $GRAFANA > /dev/null 2>&1
 systemctl stop grafana-server.service
 check_service grafana-server
-
-sleep 1
-curl -s -XPOST --user admin:admin $EXPOSE:3000/api/datasources -H "Content-Type: application/json" -d '{
-  "name": "telegraf",
-  "type": "influxdb",
-  "access": "proxy",
-  "url": "http://localhost:8086",
-  "database": "telegraf",
-  "isDefault": true
-}'
-
-echo "Provisioning Telegraf"
-cd $PKGDIR
-[[ -f $TELEGRAF ]] || wget $WGET_PARAMS https://dl.influxdata.com/telegraf/releases/$TELEGRAF -O $TELEGRAF
-dpkg -i $TELEGRAF > /dev/null 2>&1
-
-systemctl stop telegraf.service
-FILE=/etc/telegraf/telegraf.conf
-grep "CDMCS" $FILE || cat > $FILE <<EOF
-[global_tags]
-  year = "2018"
-
-[agent]
-  hostname = "CDMCS"
-  omit_hostname = false
-  interval = "1s"
-  round_interval = true
-  metric_buffer_limit = 1000
-  flush_buffer_when_full = true
-  collection_jitter = "0s"
-  flush_interval = "60s"
-  flush_jitter = "10s"
-  debug = false
-  quiet = true
-
-[[outputs.influxdb]]
-  database  = "telegraf"
-  urls  = ["http://localhost:8086"]
-
-[[inputs.cpu]]
-  percpu = true
-  totalcpu = true
-[[inputs.disk]]
-  ignore_fs = ["tmpfs", "devtmpfs"]
-[[inputs.diskio]]
-[[inputs.kernel]]
-[[inputs.mem]]
-[[inputs.net]]
-[[inputs.netstat]]
-[[inputs.processes]]
-[[inputs.swap]]
-[[inputs.system]]
-EOF
-
-check_service telegraf
 
 chmod u+x /vagrant/genTraffic.sh
 /vagrant/genTraffic.sh

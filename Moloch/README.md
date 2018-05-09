@@ -10,38 +10,48 @@ This is **0.5 + 3 + 0.5 days** of material for any intermediate-level dev-ops wh
 
 ## Day 0 :: Intro:: May 7 2018, starts at 13:00
 
- * 13:00 - 14:00 [Intro](/common/day_intro.md), [vagrant](/common/vagrant.intro.md)
- * 14:00 - 15:00 [singlehost](/Moloch/vagrant/singlehost/README.md)
- * 15:30 - 16:15 [basic config](/Moloch/config.md)
- * 16:15 - 17:00 [basic queries](/Moloch/classroom/day_intro/Basicqueries.md)
+ * 13:00 - 14:00 
+    * [Intro](/common/day_intro.md)
+    * [vagrant](/common/vagrant.intro.md) 
+    * [singlehost](/Moloch/vagrant/singlehost/)
+ * 15:30 - 16:45 
+    * [Basic usage](/Moloch/tasks/queries.md)
 
 ## Day 1 :: Single Box :: May 8 2018
 
- * 09:00 - 10:30 [build from source](/Moloch/build.md)
- * 11:00 - 11:45 [config](/Moloch/config.md)
+ * 09:00 - 12:30 
+    * [build from source](/Moloch/build.md)
+    * [config](/Moloch/config.md)
 
- * 13:00 - 16:45 Digging
-
+ * 13:30 - 16:45 
+    * Digging
 
 ## Day 2 :: Scale up :: May 9 2018
 
-* 09:00 - 10:30 [metrix](https://github.com/ccdcoe/CDMCS/tree/master/TICK/vagrant/singlehost#singlehost-tickag),[Telegraf](https://github.com/ccdcoe/CDMCS/tree/master/TICK/Telegraf),[InfluxDB](https://github.com/ccdcoe/CDMCS/tree/master/TICK/InfluxDB),[Grafana](https://github.com/ccdcoe/CDMCS/tree/master/TICK/Grafana); SALT [Minions](/common/SetUpMinions.md) & [Master](/common/SetUpMaster.md)
-* 11:00 - 12:30 [Multiple Hosts Monitoring Multiple Network Segments](https://github.com/aol/moloch/wiki/Architecture#multiple-hosts-monitoring-multiple-network-segments)
+  * 09:00 - 12:30 
+    * [Multihost](https://github.com/aol/moloch/wiki/Multiple-Host-HOWTO)
+    * [Multiple Hosts Monitoring Multiple Network Segments](https://github.com/aol/moloch/wiki/Architecture#multiple-hosts-monitoring-multiple-network-segments)
+    * [Parliament](https://github.com/aol/moloch/tree/master/parliament)
+    * [Group work](/Moloch/vagrant/multihost/)
 
-* 13:30 - 16:45 Digging
-
+  * 13:30 - 16:45 
+    * Digging
 
 ## Day 3 :: Usage :: May 10 2018
 
-* 09:00 - 10:30 [Building hunters](/Moloch/classroom/day3/hunting.md)
-* 11:00 - 12:30 Traffic capture in LS17
+  * 09:00 - 12:30
+    * [Moloch API](/Moloch/api.md)
+    * [WISE](https://github.com/aol/moloch/wiki/WISE)
+    * [High-bandwidth optimizations](/Moloch/optimize.md)
 
-* 13:00 - 16:45 Digging
+  * 13:30 - 16:45 
+    * Digging
 
 ## Day +1 :: :: May 11 2018, ends at 12:00
 
-* 09:00 - 10:30 [WISE](wise.md), [Suri2Molo](suri2molo.md)
-* 11:00 - 12:00 [feedback, contact exchange, thanks, etc.](/common/Closing.md)
+  * 09:00 - 12:00
+    * Propose what content you would like to see here
+    * [feedback, contact exchange, thanks, etc.](/common/Closing.md)
 
 ----
 

@@ -1,34 +1,23 @@
 # Building Moloch from source
 
 see
-* https://www.elastic.co/guide/en/elasticsearch/reference/current/deb.html
 * https://github.com/aol/moloch#building-and-installing
 * https://github.com/aol/moloch/wiki/Settings#Basic_Settings
 * https://nodejs.org/en/download/package-manager/
 
-## Elasticsearch
-
- * see [our full elasticsearch section for more info](/common/elastic)
 
 Install dependencies. 
 
 ```
-apt-get install -y openjdk-8-jre-headless apt-transport-https
-```
-
-Install elasticsearch (6)
-
-```
-VER=6.2.4
-wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$VER.deb
-dpkg -i elasticsearch-$VER.deb
+pkg install openjdk8 elasticsearch6 node8 lua53 wget curl pcre flex bison
+pkg install gettext e2fsprogs-libuuid glib gmake p5-JSON
 ```
 
 Set up ES java heap size.
 
 ```
-free -m
-vim /etc/elasticsearch/jvm.options
+vmstat
+vim /usr/local/etc/elasticsearch/jvm.options
 ```
 
 Rule of thumb is 50 per cent of all system memory but no more than 31(ish) gigabytes. It's okay to use less for testing environment that also houses moloch capture, viewer, wise, etc.
@@ -41,13 +30,12 @@ Rule of thumb is 50 per cent of all system memory but no more than 31(ish) gigab
 Start ES service
 
 ```
-systemctl enable elasticsearch.service
-systemctl start elasticsearch.service
-systemctl status elasticsearch.service
+sysrc elasticsearch_enable=YES
+service elasticsearch start
 ```
 
 ```
-curl -ss -XGET localhost:9200/_cat/nodes
+curl -ss -XGET 127.0.0.1:9200/_cat/nodes
 ```
 
 ## Moloch
@@ -71,7 +59,7 @@ git checkout -b 'v1.1.0'
 
 ```
 ./easybutton-build.sh -d /opt/moloch
-sudo make install
+sudo gmake install
 ```
 
 ### Basic configuration
@@ -86,8 +74,8 @@ cat ./moloch_update_geo.sh
 Create unprivileged user
 
 ```
-groupadd moloch
-useradd -s /bin/false -g moloch moloch
+pw group add moloch
+pw user add moloch -g moloch -s /usr/bin/false 
 ```
 
 Create PCAP storage directory. Set permissions
@@ -139,7 +127,7 @@ nodejs viewer.js -c /opt/moloch/etc/config.ini
 ### testing capture without viewer
 
 ```
-curl localhost:9200/_cat/indices
+curl 127.0.0.1:9200/_cat/indices
 ```
 
  * expect to see index `sessions2-YYMMDD`
@@ -147,19 +135,19 @@ curl localhost:9200/_cat/indices
  * if present, check if you actually have messages in the index
 
 ```
-curl localhost:9200/sessions2-YYMMDD/_search?pretty
+curl 127.0.0.1:9200/sessions2-YYMMDD/_search?pretty
 ```
 ```
 ls -lah /srv/pcap
 tcpdump -r *.pcap -c1
-curl -ss -XGET localhost:9200/_cat/indices
-curl -ss -XGET localhost:9200/sessions-*/_search?pretty -d '{"size":1}'
+curl -ss -XGET 127.0.0.1:9200/_cat/indices
+curl -ss -XGET 127.0.0.1:9200/sessions-*/_search?pretty -d '{"size":1}'
 ```
 
 ### Finally, ...
 
 * pushing to background (&, nohup, stdout/stderr)
-* systemd/upstart/sysvinit
+* rc
 * data retention
 
 ---
